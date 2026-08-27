@@ -1,0 +1,18 @@
+{
+  "name": "realtystudio",
+  "private": true,
+  "description": "SaaS pour agences immobilières et notaires — vidéos, descriptifs et fiches de vente générés par IA à partir de photos. (Produit 2 du plan à deux produits ; nom de marque provisoire, voir README.)",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @realtystudio/web dev",
+    "dev:worker": "pnpm --filter @realtystudio/worker dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @realtystudio/db generate",
+    "db:migrate": "pnpm --filter @realtystudio/db migrate"
+  }
+}

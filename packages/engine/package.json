@@ -1,0 +1,19 @@
+{
+  "name": "@realtystudio/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Moteur IA partagé : analyse photos, storyboard, génération vidéo, staging virtuel, retouche photo, descriptif. Pensé pour être réutilisé tel quel par le Produit 1 (Reelty) plus tard — aucune dépendance ici à la notion d'agence ou de bien immobilier.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "replicate": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  }
+}

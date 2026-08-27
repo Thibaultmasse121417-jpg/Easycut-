@@ -1,0 +1,244 @@
+// Schéma de données — RealtyStudio (nom provisoire)
+//
+// Modèle multi-tenant : une Agency (agence immobilière ou étude notariale) a des
+// Users, des Properties (biens), des SocialAccounts (comptes réseaux sociaux de
+// l'agence, pas du propriétaire) et des Jobs (traitements IA asynchrones).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Tenant ---
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("trial")
+  createdAt DateTime @default(now())
+
+  users          User[]
+  properties     Property[]
+  jobs           Job[]
+  socialAccounts SocialAccount[]
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  agencyId     String
+  agency       Agency   @relation(fields: [agencyId], references: [id])
+  email        String   @unique
+  name         String?
+  role         Role     @default(MEMBER)
+  passwordHash String?
+  createdAt    DateTime @default(now())
+
+  @@index([agencyId])
+}
+
+// --- Bien immobilier ---
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  LAND
+  COMMERCIAL
+  OTHER
+}
+
+enum PropertyStatus {
+  DRAFT // en cours de constitution (photos en cours d'upload, etc.)
+  PROCESSING // génération IA en cours (vidéo / descriptif / staging)
+  READY // prêt à publier
+  PUBLISHED
+  SOLD
+  ARCHIVED
+}
+
+model Property {
+  id           String         @id @default(cuid())
+  agencyId     String
+  agency       Agency         @relation(fields: [agencyId], references: [id])
+  reference    String? // référence interne agence / dossier notarial
+  title        String
+  notes        String? // infos saisies manuellement par l'agent, utilisées pour le descriptif
+  address      String
+  city         String
+  postalCode   String
+  price        Int?
+  surface      Float?
+  rooms        Int?
+  propertyType PropertyType   @default(APARTMENT)
+  status       PropertyStatus @default(DRAFT)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  photos       Photo[]
+  jobs         Job[]
+  videos       Video[]
+  descriptions GeneratedDescription[]
+  landingPage  LandingPage?
+  posts        Post[]
+
+  @@index([agencyId])
+}
+
+enum PhotoKind {
+  ORIGINAL
+  STAGED // sortie du staging virtuel
+  ENHANCED // sortie de la retouche IA
+}
+
+model Photo {
+  id            String    @id @default(cuid())
+  propertyId    String
+  property      Property  @relation(fields: [propertyId], references: [id])
+  url           String
+  kind          PhotoKind @default(ORIGINAL)
+  sourcePhotoId String? // photo d'origine, si STAGED ou ENHANCED
+  order         Int       @default(0)
+  width         Int?
+  height        Int?
+  createdAt     DateTime  @default(now())
+
+  @@index([propertyId])
+}
+
+// --- Jobs IA asynchrones (moteur partagé) ---
+//
+// Toute opération IA longue (analyse photos, génération vidéo, staging,
+// retouche) passe par cette table. Le worker (apps/worker) la poll, dispatch
+// vers packages/engine, et écrit le résultat dans les tables dédiées
+// (Video, GeneratedDescription, Photo) une fois terminé.
+
+enum JobType {
+  PHOTO_ANALYSIS // analyse + storyboard (étape préalable à vidéo ET descriptif)
+  VIDEO_GENERATION
+  DESCRIPTION_GENERATION
+  VIRTUAL_STAGING
+  PHOTO_ENHANCEMENT
+  LANDING_PAGE_GENERATION
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  agencyId   String
+  agency     Agency    @relation(fields: [agencyId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  type       JobType
+  status     JobStatus @default(PENDING)
+  input      Json
+  output     Json?
+  error      String?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, type])
+  @@index([propertyId])
+}
+
+// --- Résultats des traitements IA ---
+
+model Video {
+  id              String   @id @default(cuid())
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id])
+  jobId           String   @unique
+  url             String
+  thumbnailUrl    String?
+  durationSeconds Float?
+  createdAt       DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model GeneratedDescription {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  jobId      String   @unique
+  content    String
+  tone       String? // "standard" | "luxe" | "succession" (notaire)...
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model LandingPage {
+  id          String   @id @default(cuid())
+  propertyId  String   @unique
+  property    Property @relation(fields: [propertyId], references: [id])
+  slug        String   @unique
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// --- Réseaux sociaux (comptes de l'agence, publication validée manuellement) ---
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+}
+
+model SocialAccount {
+  id                String         @id @default(cuid())
+  agencyId          String
+  agency            Agency         @relation(fields: [agencyId], references: [id])
+  platform          SocialPlatform
+  accountName       String
+  externalAccountId String
+  accessToken       String
+  refreshToken      String?
+  expiresAt         DateTime?
+  createdAt         DateTime       @default(now())
+
+  posts Post[]
+
+  @@index([agencyId])
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL // en attente de validation manuelle par l'agence
+  APPROVED
+  PUBLISHED
+  FAILED
+}
+
+model Post {
+  id              String         @id @default(cuid())
+  propertyId      String
+  property        Property       @relation(fields: [propertyId], references: [id])
+  socialAccountId String
+  socialAccount   SocialAccount  @relation(fields: [socialAccountId], references: [id])
+  caption         String
+  mediaUrl        String
+  status          PostStatus     @default(DRAFT)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  externalPostId  String?
+  createdAt       DateTime       @default(now())
+
+  @@index([propertyId])
+}

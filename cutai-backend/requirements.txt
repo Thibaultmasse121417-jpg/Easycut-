@@ -1,5 +1,0 @@
-# CutAI Backend Dependencies
-# Add your Python dependencies here
-# Example:
-# flask==2.3.3
-# requests==2.31.0
