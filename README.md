@@ -1,13 +1,8 @@
-# RealtyStudio (nom provisoire) — Produit 2
+# RealtyStudio — Produit 2
 
 SaaS pour agences immobilières et notaires : transforme les photos d'un bien
 en vidéo courte, descriptif automatique et fiche prête à publier — au compte
 de l'agence, jamais celui du propriétaire.
-
-> Le nom "RealtyStudio" est un codename hérité d'une version précédente du
-> projet, réutilisé ici comme placeholder (nom de packages, titre de la page).
-> Rien n'est figé côté branding — voir `docs/ARCHITECTURE.md` pour le détail
-> des décisions prises et celles encore ouvertes.
 
 Ce repo ne construit que le **Produit 2**. Le Produit 1 (Reelty, grand
 public Airbnb/spas/campings) viendra plus tard et réutilisera le moteur IA
@@ -25,6 +20,7 @@ packages/
   db/       Schéma Prisma + client (Postgres)
   engine/   Moteur IA : analyse photos, storyboard, génération vidéo,
             staging virtuel, retouche photo, descriptif
+  pricing/  Plans & coût en crédits par type de job (voir "Pricing" plus bas)
 ```
 
 **Pourquoi séparer `engine` du reste :** c'est la seule partie du code que le
@@ -62,6 +58,28 @@ solo-bootstrap ; facilement remplaçable.
 Voir `docs/ARCHITECTURE.md` pour le détail (modèle de données, pipeline IA
 complet, ordre de build justifié, décisions ouvertes).
 
+## Pricing
+
+Abonnement mensuel avec un quota de crédits (1 crédit ≈ 1 €), débités par
+job IA lancé et remboursés automatiquement si le job échoue. Toute la config
+(plans, coût en crédits par type de job) est centralisée dans
+`packages/pricing` — voir la page `/pricing` de l'app pour la table actuelle.
+C'est une **proposition initiale**, à ajuster une fois les coûts Claude/Replicate
+réels observés en usage.
+
+Mécanique :
+- `Agency.creditBalance` — solde courant (une nouvelle agence démarre avec un
+  petit crédit d'essai, voir `schema.prisma`).
+- `CreditTransaction` — ledger complet (achat, consommation, remboursement,
+  bonus), pour l'audit et un futur relevé de conso par agence.
+- Débit et création du job sont atomiques (`app/api/properties/[id]/jobs/route.ts`) ;
+  la route renvoie `402` si le solde est insuffisant.
+- Le worker recrédite automatiquement en cas d'échec (`apps/worker/src/index.ts`).
+
+Pas encore fait : le paiement lui-même (Stripe pour l'abonnement + les
+recharges à l'unité) — le squelette gère le solde de crédits, pas encore
+l'achat.
+
 ## État actuel — ce qui marche vs ce qui reste à faire
 
 Fait dans ce squelette :
@@ -70,6 +88,8 @@ Fait dans ce squelette :
   génération de descriptif) et Replicate (vidéo, staging, retouche)
 - Worker fonctionnel (poll → dispatch → écrit le résultat en base)
 - Dashboard + fiche bien + déclenchement du pipeline depuis l'UI
+- Système de crédits complet (débit atomique, remboursement auto, ledger,
+  page `/pricing`) — voir section "Pricing" ci-dessus
 
 Volontairement pas fait (TODO explicites dans le code, cf. commentaires) :
 - **Auth réelle** (`lib/currentAgency.ts` renvoie la première agence en base)
@@ -80,6 +100,9 @@ Volontairement pas fait (TODO explicites dans le code, cf. commentaires) :
 - Staging virtuel, retouche photo, site par bien, publication réseaux
   sociaux, visite 360° : modélisés en base et dans le moteur mais pas encore
   câblés dans l'UI (voir roadmap)
+- **Paiement** (Stripe) : le solde de crédits existe et se débite/rembourse
+  correctement, mais rien ne permet encore à une agence d'acheter un
+  abonnement ou une recharge
 
 ## Setup
 

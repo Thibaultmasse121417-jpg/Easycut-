@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@realtystudio/db": "workspace:*",
-    "@realtystudio/engine": "workspace:*"
+    "@realtystudio/engine": "workspace:*",
+    "@realtystudio/pricing": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

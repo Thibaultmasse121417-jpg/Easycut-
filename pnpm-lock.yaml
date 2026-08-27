@@ -16,6 +16,9 @@ importers:
       '@realtystudio/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@realtystudio/pricing':
+        specifier: workspace:*
+        version: link:../../packages/pricing
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -65,6 +68,9 @@ importers:
       '@realtystudio/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@realtystudio/pricing':
+        specifier: workspace:*
+        version: link:../../packages/pricing
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -100,6 +106,19 @@ importers:
       replicate:
         specifier: ^0.34.0
         version: 0.34.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/pricing:
+    dependencies:
+      '@realtystudio/db':
+        specifier: workspace:*
+        version: link:../db
     devDependencies:
       '@types/node':
         specifier: ^20.14.0

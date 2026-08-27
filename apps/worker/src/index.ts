@@ -1,4 +1,5 @@
 import { prisma, JobStatus, JobType, type Job } from "@realtystudio/db";
+import { CREDIT_COST } from "@realtystudio/pricing";
 import { processPhotoAnalysis } from "./processors/photoAnalysis";
 import { processVideoGeneration } from "./processors/videoGeneration";
 import { processDescriptionGeneration } from "./processors/descriptionGeneration";
@@ -50,7 +51,34 @@ async function tick(): Promise<void> {
         finishedAt: new Date(),
       },
     });
+    await refundCredits(job);
   }
+}
+
+/**
+ * Le job a été facturé à la création (voir apps/web .../jobs/route.ts) ; s'il
+ * échoue, on rembourse les crédits consommés pour ne pas facturer un
+ * traitement qui n'a rien produit.
+ */
+async function refundCredits(job: Job): Promise<void> {
+  const cost = CREDIT_COST[job.type];
+  if (cost <= 0) return;
+
+  await prisma.$transaction([
+    prisma.agency.update({
+      where: { id: job.agencyId },
+      data: { creditBalance: { increment: cost } },
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        agencyId: job.agencyId,
+        amount: cost,
+        reason: "REFUND",
+        jobId: job.id,
+        description: `Remboursement — job ${job.type} en échec`,
+      },
+    }),
+  ]);
 }
 
 async function main(): Promise<void> {

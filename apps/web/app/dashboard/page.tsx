@@ -20,7 +20,17 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Vos biens</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Vos biens</h1>
+          {agency && (
+            <p className="mt-1 text-sm text-neutral-500">
+              {agency.creditBalance} crédits disponibles ·{" "}
+              <Link href="/pricing" className="underline">
+                recharger
+              </Link>
+            </p>
+          )}
+        </div>
         <Link
           href="/properties/new"
           className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white"

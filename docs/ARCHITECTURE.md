@@ -4,7 +4,8 @@
 
 Multi-tenant simple : une `Agency` (agence ou étude notariale) a des `User`,
 des `Property` (biens), des `SocialAccount` (comptes réseaux sociaux **de
-l'agence**) et des `Job` (traitements IA asynchrones).
+l'agence**), des `Job` (traitements IA asynchrones) et un solde de crédits
+(`creditBalance` + ledger `CreditTransaction` — voir §4bis "Pricing").
 
 ```
 Agency ─┬─ User
@@ -15,6 +16,7 @@ Agency ─┬─ User
         │            ├─ LandingPage
         │            └─ Post (réseaux sociaux)
         ├─ Job
+        ├─ CreditTransaction (ledger : achat / consommation / remboursement / bonus)
         └─ SocialAccount ─ Post
 ```
 
@@ -85,17 +87,60 @@ avec des URLs de photos déjà hébergées (ce que le squelette permet déjà),
 plutôt que de bloquer sur l'upload avant d'avoir prouvé que Kling produit
 des vidéos vendables.
 
+## 4bis. Pricing (`packages/pricing`)
+
+Abonnement mensuel + quota de crédits (1 crédit ≈ 1 €), plutôt que le
+paiement à l'unité du Produit 1 : plus adapté à un usage récurrent multi-biens
+par une agence, et laisse la porte ouverte à des recharges ponctuelles.
+
+```
+POST /api/properties/:id/jobs
+        │
+        ▼
+ transaction Postgres :
+   - lit Agency.creditBalance
+   - si < coût du job (packages/pricing.CREDIT_COST[type]) → 402, rien n'est créé
+   - sinon : crée le Job, décrémente creditBalance, log CreditTransaction(CONSUMPTION)
+        │
+        ▼
+ worker traite le job
+        │
+   ┌────┴────┐
+   ▼         ▼
+ DONE      FAILED → recrédite creditBalance, log CreditTransaction(REFUND)
+```
+
+Débit et création du job sont dans la **même transaction** : impossible de
+lancer un traitement payant sans le facturer, ni de facturer sans lancer le
+traitement. `CREDIT_COST` et `PLANS` vivent dans `packages/pricing`, pas dans
+le schéma : ce sont des constantes business qui changent rarement et n'ont
+pas besoin d'être éditables en base pour le MVP — les faire évoluer, c'est
+éditer un fichier et redéployer.
+
+`PHOTO_ANALYSIS` coûte 0 crédit : c'est une étape interne dont le résultat
+sert à la fois la vidéo et le descriptif, qui eux sont facturés — la facturer
+aussi aurait été une double charge pour la même information.
+
+Pas encore fait : le paiement réel (Stripe) pour l'achat d'abonnement/recharge
+— voir README, section "Pricing".
+
 ## 4. Décisions prises vs. ouvertes
 
-**Prises pour ce squelette** (documentées ici pour traçabilité, changeables) :
+**Prises** (documentées ici pour traçabilité, changeables) :
 - Stack full TypeScript (Next.js + Node), pas de service Python séparé.
 - Postgres + Prisma, un seul schéma partagé entre `web` et `worker`.
 - File de jobs = table Postgres pollée, pas de Redis pour le MVP.
 - Stockage prévu : Cloudflare R2 (S3-compatible).
+- Nom de marque : **RealtyStudio**.
+- Modèle de pricing : abonnement + crédits (voir §4bis) — les montants
+  eux-mêmes (`packages/pricing`) restent une proposition initiale à ajuster
+  sur les coûts réels observés.
 
 **Encore ouvertes** (à trancher ensemble) :
-- Modèle de pricing (abonnement multi-agence vs à l'unité comme le Produit 1).
-- Nom de marque définitif (placeholder "RealtyStudio" dans le code).
+- Montants exacts des plans et du coût par action (voir §4bis) — cohérents
+  avec le pricing à l'unité du Produit 1 (49€/vidéo) mais pas encore
+  confrontés aux coûts API réels.
+- Intégration du paiement (Stripe) pour l'achat d'abonnement/recharge.
 - Modèle Replicate précis pour la retouche photo (`REPLICATE_PHOTO_ENHANCE_MODEL`
   vide dans `.env.example` — à choisir après tests, comme le staging l'a été).
 - Version exacte du modèle Kling et paramètres de montage (durée totale de

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const FEATURES = [
   {
     title: "Vidéo courte du bien",
@@ -35,6 +37,9 @@ export default function LandingPage() {
           et fiche prête à publier — au compte de votre agence, jamais celui du
           propriétaire.
         </p>
+        <Link href="/pricing" className="mx-auto text-sm font-medium underline">
+          Voir les tarifs
+        </Link>
       </section>
 
       <section className="grid grid-cols-1 gap-8 sm:grid-cols-2">

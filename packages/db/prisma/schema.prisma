@@ -1,8 +1,13 @@
-// Schéma de données — RealtyStudio (nom provisoire)
+// Schéma de données — RealtyStudio
 //
 // Modèle multi-tenant : une Agency (agence immobilière ou étude notariale) a des
 // Users, des Properties (biens), des SocialAccounts (comptes réseaux sociaux de
 // l'agence, pas du propriétaire) et des Jobs (traitements IA asynchrones).
+//
+// Pricing : abonnement mensuel avec quota de crédits (Agency.creditBalance),
+// débités par job IA lancé et remboursés en cas d'échec. Voir CreditTransaction
+// ci-dessous (ledger) et packages/pricing (coût en crédits par type de job,
+// plans). "plan" reste une simple clé de chaîne qui référence packages/pricing.
 
 generator client {
   provider = "prisma-client-js"
@@ -16,16 +21,42 @@ datasource db {
 // --- Tenant ---
 
 model Agency {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  plan      String   @default("trial")
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  plan          String   @default("trial")
+  // Une nouvelle agence démarre avec un petit crédit d'essai (assez pour
+  // ~1 vidéo) plutôt qu'un solde à zéro — voir packages/pricing.
+  creditBalance Int      @default(20)
+  createdAt     DateTime @default(now())
 
-  users          User[]
-  properties     Property[]
-  jobs           Job[]
-  socialAccounts SocialAccount[]
+  users              User[]
+  properties         Property[]
+  jobs               Job[]
+  socialAccounts     SocialAccount[]
+  creditTransactions CreditTransaction[]
+}
+
+enum CreditTransactionReason {
+  PURCHASE // achat d'abonnement ou de recharge
+  CONSUMPTION // crédits débités au lancement d'un job
+  REFUND // job en échec : crédits recrédités
+  BONUS // ajustement manuel (geste commercial, essai gratuit...)
+}
+
+model CreditTransaction {
+  id          String                   @id @default(cuid())
+  agencyId    String
+  agency      Agency                   @relation(fields: [agencyId], references: [id])
+  // Positif = crédits ajoutés (achat, remboursement, bonus), négatif = consommés.
+  amount      Int
+  reason      CreditTransactionReason
+  jobId       String?
+  job         Job?                     @relation(fields: [jobId], references: [id])
+  description String?
+  createdAt   DateTime                 @default(now())
+
+  @@index([agencyId])
 }
 
 enum Role {
@@ -152,6 +183,8 @@ model Job {
   createdAt  DateTime  @default(now())
   startedAt  DateTime?
   finishedAt DateTime?
+
+  creditTransactions CreditTransaction[]
 
   @@index([status, type])
   @@index([propertyId])
