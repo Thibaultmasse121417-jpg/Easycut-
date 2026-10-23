@@ -87,7 +87,9 @@ Fait dans ce squelette :
 - Moteur IA avec vraie logique d'appel Claude (analyse photos + storyboard,
   génération de descriptif) et Replicate (vidéo, staging, retouche)
 - Worker fonctionnel (poll → dispatch → écrit le résultat en base)
-- Dashboard + fiche bien + déclenchement du pipeline depuis l'UI
+- Pipeline vidéo + descriptif câblé de bout en bout dans l'UI : analyse des
+  photos → "Générer la vidéo" / "Générer le descriptif" sur la fiche bien,
+  avec rafraîchissement automatique pendant qu'un job tourne (`JobsPoller`)
 - Système de crédits complet (débit atomique, remboursement auto, ledger,
   page `/pricing`) — voir section "Pricing" ci-dessus
 
